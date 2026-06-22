@@ -76,6 +76,13 @@ export class SVGRelationRenderer {
 
     SVGRelationRenderer._roleLabel(g, rel.roleFrom, fromPort, fromPort.side);
     SVGRelationRenderer._roleLabel(g, rel.roleTo,   toPort,   toPort.side);
+
+    // ── Atributos de la relación (notación Chen) ──────────────────────────
+    // Cuelgan con línea punteada desde el punto medio de la línea principal.
+    if (rel.attributes && rel.attributes.length > 0) {
+      const mid = SVGRelationRenderer._pathMidpoint(fromPort, toPort);
+      SVGRelationRenderer._drawRelAttributes(g, rel.attributes, mid, !!rel.label);
+    }
   }
 
   /**
@@ -227,6 +234,12 @@ export class SVGRelationRenderer {
 
     SVGRelationRenderer._roleLabel(g, rel.roleFrom, portBottom, 'bottom');
     SVGRelationRenderer._roleLabel(g, rel.roleTo,   portRight,  'right');
+
+    // Atributos de la relación, colgando debajo de la etiqueta del lazo
+    if (rel.attributes && rel.attributes.length > 0) {
+      const attrAnchor = { x: labelX, y: labelY };
+      SVGRelationRenderer._drawRelAttributes(g, rel.attributes, attrAnchor, !!rel.label);
+    }
   }
 
   /**
@@ -258,6 +271,59 @@ export class SVGRelationRenderer {
       py = y + H * t;
     }
     return { x: px, y: py, side };
+  }
+
+  /**
+   * Dibuja los atributos propios de la relación, colgando con línea punteada
+   * desde el punto medio de la línea principal (notación Chen).
+   * Cada atributo adicional se distribuye en abanico para no superponerse.
+   *
+   * @param {SVGGElement} g          Grupo SVG de la relación
+   * @param {Attribute[]} attrs      Atributos a dibujar
+   * @param {{x,y}}       anchor     Punto desde donde cuelgan (centro de la línea)
+   * @param {boolean}     hasLabel   Si la relación ya tiene un label de nombre,
+   *                                 desplazamos los atributos para no superponerlos
+   */
+  static _drawRelAttributes(g, attrs, anchor, hasLabel) {
+    const DROP = 38;         // distancia vertical del primer atributo
+    const SPACING = 30;      // separación horizontal entre atributos múltiples
+    const baseY = anchor.y + (hasLabel ? 20 : 0);
+
+    // Distribuir los atributos en abanico horizontal si hay más de uno
+    const n = attrs.length;
+    attrs.forEach((attr, i) => {
+      // Offset horizontal centrado: -n/2 .. +n/2
+      const offsetX = (i - (n - 1) / 2) * SPACING;
+      const dropX = anchor.x + offsetX;
+      const dropY = baseY + DROP;
+
+      // Línea punteada que conecta el centro de la relación con el atributo
+      g.appendChild(svgEl('line', {
+        x1: anchor.x, y1: baseY,
+        x2: dropX,    y2: dropY - 7,
+        class: 'rel-attr-line',
+      }));
+
+      // Óvalo/elipse con el nombre del atributo (estilo Chen clásico)
+      const text = attr.name + (attr.typeLabel ? '' : '');
+      const ew = Math.max(text.length * 6.5 + 16, 40);
+      const eh = 16;
+
+      g.appendChild(svgEl('ellipse', {
+        cx: dropX, cy: dropY, rx: ew/2, ry: eh/2,
+        class: 'rel-attr-ellipse',
+      }));
+
+      const lbl = svgEl('text', {
+        x: dropX, y: dropY,
+        'dominant-baseline': 'middle', 'text-anchor': 'middle',
+        class: 'rel-attr-label',
+        'font-family': 'JetBrains Mono, monospace',
+        'font-size': '10',
+      });
+      lbl.textContent = text;
+      g.appendChild(lbl);
+    });
   }
 
   static _roleLabel(g, role, port, side) {

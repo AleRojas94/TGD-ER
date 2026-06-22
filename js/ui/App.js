@@ -22,6 +22,7 @@ export class App {
     this._relFromEntity  = null;
     this._relPreviewLine = null;
     this._editingRel     = null;
+    this._relAttrsDraft  = []; // borrador editable de atributos de relación (notación Chen)
     this._spaceDown      = false;
     this._prevTool       = 'select';
     this._fileHandle     = null;       // FileSystemFileHandle del archivo abierto
@@ -499,6 +500,10 @@ export class App {
     document.getElementById('rel-to').addEventListener('change',   () => { this._updateRelPreviewBar(); this._updateRolesSection(); });
     document.getElementById('rel-label').addEventListener('input', () => this._updateRelPreviewBar());
     document.getElementById('rel-modal-confirm').addEventListener('click', () => this._confirmRelModal());
+    document.getElementById('rel-attr-add').addEventListener('click', () => {
+      this._relAttrsDraft.push(new Attribute(''));
+      this._renderRelAttrsList();
+    });
   }
 
   openRelModal(fromId = null, toId = null, relEdit = null) {
@@ -519,10 +524,37 @@ export class App {
     if (idCheck) idCheck.checked = relEdit ? (relEdit.identifying === true) : false;
     document.getElementById('rel-role-from').value = relEdit ? (relEdit.roleFrom || '') : '';
     document.getElementById('rel-role-to').value   = relEdit ? (relEdit.roleTo   || '') : '';
+
+    // Clonar atributos existentes en un borrador editable (o lista vacía si es nueva)
+    this._relAttrsDraft = relEdit && relEdit.attributes
+      ? relEdit.attributes.map(a => Attribute.fromJSON(a.toJSON()))
+      : [];
+    this._renderRelAttrsList();
+
     this._updateRelPreviewBar();
     this._updateRolesSection();
     modal.classList.remove('hidden');
     setTimeout(() => labelInp.focus(), 80);
+  }
+
+  /** Renderiza la lista editable de atributos de relación dentro del modal */
+  _renderRelAttrsList() {
+    const container = document.getElementById('rel-attrs-list');
+    container.innerHTML = '';
+    this._relAttrsDraft.forEach((attr, i) => {
+      const row = document.createElement('div');
+      row.className = 'rel-attr-item';
+      row.innerHTML = `
+        <input type="text" class="input-field" placeholder="nombre_atributo" value="${attr.name}" />
+        <button class="btn-xs del" type="button">✕</button>`;
+      const input = row.querySelector('input');
+      input.addEventListener('input', () => { attr.name = input.value; });
+      row.querySelector('.del').addEventListener('click', () => {
+        this._relAttrsDraft.splice(i, 1);
+        this._renderRelAttrsList();
+      });
+      container.appendChild(row);
+    });
   }
 
   _setCardSelection(groupId, value) {
@@ -573,15 +605,18 @@ export class App {
     const identifying = document.getElementById('rel-identifying')?.checked === true;
     const roleFrom    = document.getElementById('rel-role-from')?.value.trim() || '';
     const roleTo      = document.getElementById('rel-role-to')?.value.trim()   || '';
+    // Descartar atributos sin nombre antes de guardar
+    const attributes  = (this._relAttrsDraft || []).filter(a => a.name && a.name.trim() !== '');
     if (!fromId || !toId) { alert('Selecciona las entidades'); return; }
     if (this._editingRel) {
       this._editingRel.fromId = fromId; this._editingRel.toId = toId;
       this._editingRel.cardFrom = cardFrom; this._editingRel.cardTo = cardTo;
       this._editingRel.label = label; this._editingRel.identifying = identifying;
       this._editingRel.roleFrom = roleFrom; this._editingRel.roleTo = roleTo;
+      this._editingRel.attributes = attributes;
       this.renderAll();
     } else {
-      const rel = new Relationship(fromId, toId, cardFrom, cardTo, label, identifying, roleFrom, roleTo);
+      const rel = new Relationship(fromId, toId, cardFrom, cardTo, label, identifying, roleFrom, roleTo, attributes);
       this.diagram.addRelationship(rel);
       this._renderOneRelationship(rel);
     }
@@ -589,7 +624,11 @@ export class App {
     this.currentTool = 'select'; this._updateToolUI(); this._showHint('');
   }
 
-  _closeRelModal() { document.getElementById('rel-modal').classList.add('hidden'); this._editingRel = null; }
+  _closeRelModal() {
+    document.getElementById('rel-modal').classList.add('hidden');
+    this._editingRel    = null;
+    this._relAttrsDraft = [];
+  }
 
   // ── Entidades débiles ─────────────────────────────────────────────────────
   _checkWeakEntities() {
