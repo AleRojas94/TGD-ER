@@ -108,10 +108,27 @@ export class SVGEntityRenderer {
     if (attr.fk) { row.appendChild(SVGEntityRenderer._badge('FK', xOff, y+AH/2, 'var(--accent2)', 'var(--accent2-dim)')); xOff += 26; }
     if (attr.unique && !attr.pk) { row.appendChild(SVGEntityRenderer._badge('UQ', xOff, y+AH/2, 'var(--success)', '#0d3326')); xOff += 26; }
 
+    // Calcular el ancho disponible para el nombre, dejando espacio para el tipo de dato
+    const TYPE_RESERVED = attr.typeLabel ? Math.max(attr.typeLabel.length * 6.2 + 16, 50) : 8;
+    const nameMaxWidth = Math.max(W - xOff - TYPE_RESERVED, 20);
+
+    // Estimar si el nombre completo entra en el espacio disponible (≈6.2px por carácter a 11.5px monospace)
+    const fullName = attr.name + (attr.nn ? ' *' : '');
+    const CHAR_W = 6.5;
+    const maxChars = Math.floor(nameMaxWidth / CHAR_W);
+    const truncated = fullName.length > maxChars;
+    const displayName = truncated ? fullName.slice(0, Math.max(maxChars - 1, 1)) + '…' : fullName;
+
     const nameEl = svgEl('text', { x: xOff, y: y+AH/2, 'dominant-baseline': 'middle',
       'font-family': 'JetBrains Mono, monospace', 'font-size': '11.5',
       fill: attr.pk ? '#f6c90e' : (attr.fk ? 'var(--accent2)' : 'var(--fg)') });
-    nameEl.textContent = attr.name + (attr.nn ? ' *' : '');
+    nameEl.textContent = displayName;
+    if (truncated) {
+      // Tooltip nativo del navegador con el nombre completo al hacer hover
+      const titleEl = svgEl('title', {});
+      titleEl.textContent = fullName;
+      nameEl.appendChild(titleEl);
+    }
     row.appendChild(nameEl);
 
     if (attr.typeLabel) {
