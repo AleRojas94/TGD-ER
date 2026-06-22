@@ -45,7 +45,7 @@ export class App {
   _init() {
     this._bindToolButtons(); this._bindTopbarButtons(); this._bindCanvasEvents();
     this._bindKeyboard(); this._bindRelModal(); this._bindGenModal();
-    this._updateToolUI(); this._loadExample();
+    this._updateToolUI(); //this._loadExample();
   }
 
   _loadExample() {
