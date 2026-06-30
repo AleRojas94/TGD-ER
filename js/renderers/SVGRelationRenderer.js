@@ -59,9 +59,6 @@ export class SVGRelationRenderer {
     CrowsFootRenderer.draw(g, Relationship.cardToType(rel.cardFrom), fromPort, anchorFrom, 'cf-mark');
     CrowsFootRenderer.draw(g, Relationship.cardToType(rel.cardTo),   toPort,   anchorTo,   'cf-mark-dest');
 
-    SVGRelationRenderer._cardLabel(g, rel.cardFrom, fromPort, anchorFrom, false);
-    SVGRelationRenderer._cardLabel(g, rel.cardTo,   toPort,   anchorTo,   true);
-
     if (rel.label) {
       const mid = SVGRelationRenderer._pathMidpoint(fromPort, toPort);
       g.appendChild(svgEl('rect', {
@@ -145,31 +142,6 @@ export class SVGRelationRenderer {
     };
   }
 
-  static _cardLabel(g, card, port, anchor, isDest) {
-    const angle = Math.atan2(port.y - anchor.y, port.x - anchor.x);
-    const OFFSET = 22, PERP = 14;
-    const px = port.x - Math.cos(angle) * OFFSET;
-    const py = port.y - Math.sin(angle) * OFFSET;
-    const tx = px - Math.sin(angle) * PERP;
-    const ty = py + Math.cos(angle) * PERP;
-    const lbl = svgEl('text', { x: tx, y: ty, 'dominant-baseline': 'middle', 'text-anchor': 'middle',
-      'font-family': 'JetBrains Mono, monospace', 'font-size': '10', 'font-weight': '700',
-      fill: isDest ? 'var(--accent2)' : 'var(--accent)' });
-    lbl.textContent = card;
-    g.appendChild(lbl);
-  }
-
-  static _selfRefCardLabel(g, card, x, y, isDest) {
-    const lbl = svgEl('text', {
-      x, y,
-      'dominant-baseline': 'middle', 'text-anchor': 'middle',
-      'font-family': 'JetBrains Mono, monospace', 'font-size': '10', 'font-weight': '700',
-      fill: isDest ? 'var(--accent2)' : 'var(--accent)',
-    });
-    lbl.textContent = card;
-    g.appendChild(lbl);
-  }
-
   /**
    * Relación autoreferenciada con segmentos ortogonales.
    * Lazo en la esquina inferior-derecha:
@@ -210,11 +182,6 @@ export class SVGRelationRenderer {
 
     CrowsFootRenderer.draw(g, Relationship.cardToType(rel.cardFrom), portBottom, anchorBottom, 'cf-mark');
     CrowsFootRenderer.draw(g, Relationship.cardToType(rel.cardTo),   portRight,  anchorRight,  'cf-mark-dest');
-
-    SVGRelationRenderer._selfRefCardLabel(g, rel.cardFrom,
-      portBottom.x - 18, portBottom.y + 14, false);
-    SVGRelationRenderer._selfRefCardLabel(g, rel.cardTo,
-      portRight.x + 14,  portRight.y - 14,  true);
 
     const labelX = (A.x + B.x) / 2;
     const labelY = A.y + 12;

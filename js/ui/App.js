@@ -1219,12 +1219,6 @@ export class App {
       };
       drawCF(Relationship.cardToType(rel.cardFrom),fp,tp,C.accent);
       drawCF(Relationship.cardToType(rel.cardTo),tp,fp,C.accent2);
-      const drawCard=(card,port,anchor,color)=>{
-        const angle=Math.atan2(port.y-anchor.y,port.x-anchor.x),OFFSET=22,PERP=14;
-        const px=port.x-Math.cos(angle)*OFFSET,py=port.y-Math.sin(angle)*OFFSET;
-        root.appendChild(el('text',{x:px-Math.sin(angle)*PERP,y:py+Math.cos(angle)*PERP,'dominant-baseline':'middle','text-anchor':'middle','font-family':FONT,'font-size':'10','font-weight':'700',fill:color},card));
-      };
-      drawCard(rel.cardFrom,fp,tp,C.accent); drawCard(rel.cardTo,tp,fp,C.accent2);
       if(rel.label){const mx=(fp.x+tp.x)/2,my=(fp.y+tp.y)/2;root.appendChild(el('rect',{x:mx-34,y:my-8,width:68,height:14,rx:3,fill:C.entityBg,opacity:'0.95'}));root.appendChild(el('text',{x:mx,y:my,'dominant-baseline':'middle','text-anchor':'middle','font-family':FONT,'font-size':'9.5',fill:C.fgMuted},rel.label));}
     });
 
