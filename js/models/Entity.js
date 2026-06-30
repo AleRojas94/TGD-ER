@@ -4,7 +4,7 @@ import { Attribute } from './Attribute.js';
 export class Entity {
   constructor(name = 'ENTIDAD', x = 100, y = 100) {
     this.id = uid(); this.name = name; this.x = x; this.y = y;
-    this.attributes = []; this.width = 200; this.headerH = 38; this.attrH = 26; this.footerH = 28;
+    this.attributes = []; this.width = 180; this.headerH = 34; this.attrH = 23; this.footerH = 25;
     this.isWeak = false; // entidad débil: doble borde
   }
 

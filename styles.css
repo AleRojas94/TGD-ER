@@ -2023,3 +2023,8 @@ kbd {
 /* ===== TOGGLE DE TEMA ===== */
 #btn-theme-toggle svg { flex-shrink: 0; }
 #theme-toggle-label { font-size: 12px; }
+
+/* ===== BOTÓN AGREGAR ATRIBUTO ===== */
+.add-attr-btn:hover text {
+  fill: var(--accent);
+}

@@ -90,6 +90,9 @@ export class SVGEntityRenderer {
     addGrp.addEventListener('click', (e) => { e.stopPropagation(); app.openAttrEditor(entity, null, g); });
     g.appendChild(addGrp);
 
+    addGrp.addEventListener('click', (e) => { e.stopPropagation(); app.openAttrEditor(entity, null, g); });
+    g.appendChild(addGrp);
+
     SVGEntityRenderer._renderPorts(entity, g, app);
     SVGEntityRenderer._attachDrag(entity, g, app);
     return g;
