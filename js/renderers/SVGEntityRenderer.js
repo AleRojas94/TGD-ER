@@ -104,9 +104,9 @@ export class SVGEntityRenderer {
     if (index > 0) row.appendChild(svgEl('line', { class: 'attr-sep', x1: 8, y1: y, x2: W-8, y2: y }));
 
     let xOff = 10;
-    if (attr.pk) { row.appendChild(SVGEntityRenderer._badge('PK', xOff, y+AH/2, '#f6c90e', '#2a2000')); xOff += 26; }
+    if (attr.pk) { row.appendChild(SVGEntityRenderer._badge('PK', xOff, y+AH/2, 'var(--pk-color)', 'var(--pk-bg)')); xOff += 26; }
     if (attr.fk) { row.appendChild(SVGEntityRenderer._badge('FK', xOff, y+AH/2, 'var(--accent2)', 'var(--accent2-dim)')); xOff += 26; }
-    if (attr.unique && !attr.pk) { row.appendChild(SVGEntityRenderer._badge('UQ', xOff, y+AH/2, 'var(--success)', '#0d3326')); xOff += 26; }
+    if (attr.unique && !attr.pk) { row.appendChild(SVGEntityRenderer._badge('UQ', xOff, y+AH/2, 'var(--success)', 'var(--uq-bg)')); xOff += 26; }
 
     // Calcular el ancho disponible para el nombre, dejando espacio para el tipo de dato
     const TYPE_RESERVED = attr.typeLabel ? Math.max(attr.typeLabel.length * 6.2 + 16, 50) : 8;
@@ -121,7 +121,7 @@ export class SVGEntityRenderer {
 
     const nameEl = svgEl('text', { x: xOff, y: y+AH/2, 'dominant-baseline': 'middle',
       'font-family': 'JetBrains Mono, monospace', 'font-size': '11.5',
-      fill: attr.pk ? '#f6c90e' : (attr.fk ? 'var(--accent2)' : 'var(--fg)') });
+      fill: attr.pk ? 'var(--pk-color)' : (attr.fk ? 'var(--accent2)' : 'var(--fg)') });
     nameEl.textContent = displayName;
     if (truncated) {
       // Tooltip nativo del navegador con el nombre completo al hacer hover

@@ -1,6 +1,7 @@
 /* ===================================================
-   ERFlow — Estilos principales
+   ERFlow / DiagramAR — Estilos principales
    Tema: Dark mode industrial / precision tooling
+   Con soporte para tema claro (toggle, sin persistencia)
    =================================================== */
 
 :root {
@@ -33,6 +34,11 @@
 
   --grid-dot:    #1e2840;
 
+  /* Badges de atributos: PK / FK / UQ — variables propias para que el tema claro pueda recolorearlos */
+  --pk-color:    #f6c90e;
+  --pk-bg:       #2a2000;
+  --uq-bg:       #0d3326;
+
   --topbar-h:    48px;
   --sidebar-w:   210px;
 
@@ -44,6 +50,50 @@
 
   --shadow:      0 4px 24px rgba(0,0,0,0.5);
   --shadow-sm:   0 2px 8px rgba(0,0,0,0.35);
+}
+
+/* ===== TEMA CLARO ===== */
+body.theme-light {
+  --bg:          #f5f6f9;
+  --bg2:         #ffffff;
+  --bg3:         #eef0f5;
+  --bg4:         #e4e7ee;
+  --border:      #dde1ea;
+  --border2:     #c7ccd9;
+
+  --fg:          #1a1f2e;
+  --fg-muted:    #5c6479;
+  --fg-subtle:   #8891a3;
+
+  --accent:      #2570e8;
+  --accent-dim:  #dbe8fc;
+  --accent2:     #7c5cea;
+  --accent2-dim: #e7e1fb;
+  --danger:      #dc2626;
+  --danger-dim:  #fbdada;
+  --success:     #059669;
+
+  --entity-bg:   #ffffff;
+  --entity-head: #eef0f5;
+  --entity-border: #c7ccd9;
+  --entity-selected: #2570e8;
+
+  --rel-line:    #2570e8;
+  --rel-line-hover: #7c5cea;
+
+  --grid-dot:    #dde1ea;
+
+  --pk-color:    #7a4e00;
+  --pk-bg:       #fde9b0;
+  --uq-bg:       #cdf0df;
+
+  --shadow:      0 4px 24px rgba(20,25,40,0.12);
+  --shadow-sm:   0 2px 8px rgba(20,25,40,0.08);
+}
+
+/* Transición suave al cambiar de tema */
+body, .entity-box, .entity-header, .modal, .topbar, .sidebar {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -348,7 +398,7 @@ html, body {
 }
 
 .attr-row .attr-name { fill: var(--fg); }
-.attr-row .attr-pk   { fill: #f6c90e; font-weight: 600; }
+.attr-row .attr-pk   { fill: var(--pk-color); font-weight: 600; }
 .attr-row .attr-fk   { fill: var(--accent2); }
 .attr-row .attr-type { fill: var(--fg-subtle); }
 
@@ -1684,10 +1734,10 @@ html, body {
 }
 
 .tut-badge { font-family: var(--font-mono); font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 3px; }
-.tut-badge.pk { background: #2a2000; color: #f6c90e; }
+.tut-badge.pk { background: var(--pk-bg); color: var(--pk-color); }
 .tut-badge.fk { background: var(--accent2-dim); color: var(--accent2); }
 .tut-badge.nn { background: var(--bg4); color: var(--fg-muted); border: 1px solid var(--border2); }
-.tut-badge.uq { background: #0d3326; color: var(--success); }
+.tut-badge.uq { background: var(--uq-bg); color: var(--success); }
 .tut-badge-weak { font-family: var(--font-mono); font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 3px; background: var(--accent2-dim); color: var(--accent2); }
 
 /* Crow's Foot grid */
@@ -1969,3 +2019,7 @@ kbd {
   flex-shrink: 0;
   padding: 4px 8px;
 }
+
+/* ===== TOGGLE DE TEMA ===== */
+#btn-theme-toggle svg { flex-shrink: 0; }
+#theme-toggle-label { font-size: 12px; }

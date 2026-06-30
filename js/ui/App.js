@@ -45,7 +45,7 @@ export class App {
   _init() {
     this._bindToolButtons(); this._bindTopbarButtons(); this._bindCanvasEvents();
     this._bindKeyboard(); this._bindRelModal(); this._bindGenModal();
-    this._updateToolUI(); //this._loadExample();
+    this._updateToolUI(); this._loadExample();
   }
 
   _loadExample() {
@@ -111,9 +111,23 @@ export class App {
     document.getElementById('btn-save-as').addEventListener('click',     () => this.saveProjectAs());
     document.getElementById('btn-export-png').addEventListener('click',  () => this.exportPNG());
     document.getElementById('btn-export-json').addEventListener('click', () => this.exportJSON());
+    document.getElementById('btn-theme-toggle').addEventListener('click',() => this.toggleTheme());
     document.getElementById('file-input').addEventListener('change', (e) => {
       if (e.target.files[0]) this.loadProject(e.target.files[0]); e.target.value = '';
     });
+  }
+
+  /**
+   * Alterna entre tema oscuro (por defecto) y tema claro.
+   * No persiste en localStorage — se resetea al recargar la página.
+   */
+  toggleTheme() {
+    document.body.classList.toggle('theme-light');
+    const isLight = document.body.classList.contains('theme-light');
+    document.getElementById('theme-icon-sun')?.style.setProperty('display', isLight ? 'block' : 'none');
+    document.getElementById('theme-icon-moon')?.style.setProperty('display', isLight ? 'none' : 'block');
+    const label = document.getElementById('theme-toggle-label');
+    if (label) label.textContent = isLight ? 'Claro' : 'Oscuro';
   }
 
   // ── Canvas events ─────────────────────────────────────────────────────────
@@ -1139,12 +1153,22 @@ export class App {
   exportPNG() {
     if (!this.diagram.entities.length) { alert('No hay entidades para exportar'); return; }
 
+    // Leer la paleta activa desde las variables CSS computadas, para que
+    // la exportación respete el tema actual (claro u oscuro) en lugar de
+    // usar colores fijos. weakBadgeFg y gridDot se derivan con valores
+    // específicos por tema porque no tienen variable CSS propia.
+    const cs = getComputedStyle(document.body);
+    const v  = (name) => cs.getPropertyValue(name).trim();
+    const isLight = document.body.classList.contains('theme-light');
+
     const C = {
-      bg:'#0f1117', entityBg:'#161b25', entityHead:'#1d2433', entityBorder:'#3a4560',
-      entityWeak:'#7c6adb', sep:'#2a3347', fg:'#e8ecf4', fgMuted:'#8896b0', fgSubtle:'#4e5c78',
-      accent:'#4f9eff', accent2:'#a78bfa', accentDim:'#1e3a5f', accent2Dim:'#2d1f5e',
-      pkColor:'#f6c90e', pkBg:'#2a2000', fkColor:'#a78bfa', fkBg:'#2d1f5e',
-      weakBadgeBg:'#2d1f5e', weakBadgeFg:'#c4b5fd', gridDot:'#1a2030',
+      bg: v('--bg'), entityBg: v('--entity-bg'), entityHead: v('--entity-head'),
+      entityBorder: v('--entity-border'), entityWeak: isLight ? '#7c5cea' : '#7c6adb',
+      sep: v('--border'), fg: v('--fg'), fgMuted: v('--fg-muted'), fgSubtle: v('--fg-subtle'),
+      accent: v('--accent'), accent2: v('--accent2'), accentDim: v('--accent-dim'), accent2Dim: v('--accent2-dim'),
+      pkColor: v('--pk-color'), pkBg: v('--pk-bg'), fkColor: v('--accent2'), fkBg: v('--accent2-dim'),
+      weakBadgeBg: v('--accent2-dim'), weakBadgeFg: isLight ? '#5b3fc4' : '#c4b5fd',
+      gridDot: isLight ? '#dde1ea' : '#1a2030',
     };
     const FONT = "'JetBrains Mono', 'Courier New', monospace";
 
