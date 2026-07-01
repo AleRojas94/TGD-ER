@@ -18,3 +18,4 @@ A su vez, el sistema tiene varias opciones de archivos para trabajar.
 - Importar diagrama desde JSON
 - Guardar los últimos cambios en el archivo importado. 
 - Modo oscuro/claro
+<img width="2455" height="2103" alt="erflow-diagram-4" src="https://github.com/user-attachments/assets/247f8b2f-eb8a-44f5-82c8-2d8b836501f1" />
