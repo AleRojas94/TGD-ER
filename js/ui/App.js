@@ -126,8 +126,7 @@ export class App {
     const isLight = document.body.classList.contains('theme-light');
     document.getElementById('theme-icon-sun')?.style.setProperty('display', isLight ? 'block' : 'none');
     document.getElementById('theme-icon-moon')?.style.setProperty('display', isLight ? 'none' : 'block');
-    const label = document.getElementById('theme-toggle-label');
-    if (label) label.textContent = isLight ? 'Claro' : 'Oscuro';
+    
   }
 
   // ── Canvas events ─────────────────────────────────────────────────────────
