@@ -1,9 +1,8 @@
-# TGD-ER
-Herramienta educativa para crear diagramas
-Entidad-Relación con notación Crow's Foot(Pata de cuervo).
+# diagramAR
+Herramienta educativa para crear diagramas de Entidad-Relación con notación Crow's Foot(Pata de cuervo).
 
 ## Funcionalidades
-
+Actualmente, el sistema esta preparado para crear DER con los siguientes elementos
 - Entidades
 - Atributos
 -- Tipos de datos
@@ -11,6 +10,11 @@ Entidad-Relación con notación Crow's Foot(Pata de cuervo).
 -- FK
 - Entidades débiles
 - Relaciones identificadoras
+- Jerarquia de Generalización
+- Relaciones autorreferenciadas
+A su vez, el sistema tiene varias opciones de archivos para trabajar.
 - Exportación PNG
 - Exportación JSON
 - Importar diagrama desde JSON
+- Guardar los últimos cambios en el archivo importado. 
+- Modo oscuro/claro
