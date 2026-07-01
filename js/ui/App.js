@@ -126,7 +126,6 @@ export class App {
     const isLight = document.body.classList.contains('theme-light');
     document.getElementById('theme-icon-sun')?.style.setProperty('display', isLight ? 'block' : 'none');
     document.getElementById('theme-icon-moon')?.style.setProperty('display', isLight ? 'none' : 'block');
-    
   }
 
   // ── Canvas events ─────────────────────────────────────────────────────────
@@ -1152,113 +1151,135 @@ export class App {
   exportPNG() {
     if (!this.diagram.entities.length) { alert('No hay entidades para exportar'); return; }
 
-    // Leer la paleta activa desde las variables CSS computadas, para que
-    // la exportación respete el tema actual (claro u oscuro) en lugar de
-    // usar colores fijos. weakBadgeFg y gridDot se derivan con valores
-    // específicos por tema porque no tienen variable CSS propia.
-    const cs = getComputedStyle(document.body);
-    const v  = (name) => cs.getPropertyValue(name).trim();
-    const isLight = document.body.classList.contains('theme-light');
-
-    const C = {
-      bg: v('--bg'), entityBg: v('--entity-bg'), entityHead: v('--entity-head'),
-      entityBorder: v('--entity-border'), entityWeak: isLight ? '#7c5cea' : '#7c6adb',
-      sep: v('--border'), fg: v('--fg'), fgMuted: v('--fg-muted'), fgSubtle: v('--fg-subtle'),
-      accent: v('--accent'), accent2: v('--accent2'), accentDim: v('--accent-dim'), accent2Dim: v('--accent2-dim'),
-      pkColor: v('--pk-color'), pkBg: v('--pk-bg'), fkColor: v('--accent2'), fkBg: v('--accent2-dim'),
-      weakBadgeBg: v('--accent2-dim'), weakBadgeFg: isLight ? '#5b3fc4' : '#c4b5fd',
-      gridDot: isLight ? '#dde1ea' : '#1a2030',
-    };
-    const FONT = "'JetBrains Mono', 'Courier New', monospace";
+    // ── Estrategia: capturar el SVG del DOM directamente ────────────────────
+    // El SVG en pantalla ya tiene todo correctamente renderizado: jerarquías,
+    // autoreferencias, paths ortogonales, entidades débiles, etc.
+    // El problema de exportar el SVG del DOM es que las variables CSS (var(--bg),
+    // etc.) no se resuelven al serializar. La solución: clonar el SVG y reemplazar
+    // recursivamente todas las propiedades CSS que usen var() con sus valores
+    // computados reales antes de serializar.
 
     const pad = 60;
     let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
-    this.diagram.entities.forEach(e => { minX=Math.min(minX,e.x); minY=Math.min(minY,e.y); maxX=Math.max(maxX,e.x+e.width); maxY=Math.max(maxY,e.y+e.height); });
+    this.diagram.entities.forEach(e => {
+      minX=Math.min(minX,e.x); minY=Math.min(minY,e.y);
+      maxX=Math.max(maxX,e.x+e.width); maxY=Math.max(maxY,e.y+e.height);
+    });
     const W = maxX-minX+pad*2, H = maxY-minY+pad*2, SC = 2;
 
-    const NS = 'http://www.w3.org/2000/svg';
-    const el = (tag, attrs={}, txt='') => {
-      const e = document.createElementNS(NS, tag);
-      for (const [k,v] of Object.entries(attrs)) e.setAttribute(k,v);
-      if (txt) e.textContent = txt;
-      return e;
+    // Clonar el SVG completo
+    const clone = this.svgCanvas.cloneNode(true);
+    clone.setAttribute('width',  W * SC);
+    clone.setAttribute('height', H * SC);
+    clone.setAttribute('viewBox', `0 0 ${W * SC} ${H * SC}`);
+
+    // Ajustar la transformación del grupo raíz para centrar el contenido
+    const rootG = clone.querySelector('#diagram-root');
+    if (rootG) {
+      rootG.setAttribute('transform',
+        `translate(${(pad - minX) * SC}, ${(pad - minY) * SC}) scale(${SC})`);
+    }
+
+    // Ocultar elementos de UI que no deben exportarse
+    clone.querySelectorAll('.port-dot, .entity-weak-warning, .entity-weak-toggle, #grid-bg').forEach(el => {
+      el.setAttribute('display', 'none');
+    });
+
+    // Ocultar "Agregar atributo" — es UI, no debe aparecer en el PNG
+    clone.querySelectorAll('.add-attr-btn').forEach(el => {
+      el.setAttribute('display', 'none');
+    });
+
+    // Para la exportación siempre usamos los valores del tema CLARO,
+    // sin importar el tema activo en pantalla. Creamos un elemento temporal
+    // con la clase theme-light para leer sus variables computadas.
+    const tempDiv = document.createElement('div');
+    tempDiv.className = 'theme-light';
+    tempDiv.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none';
+    document.body.appendChild(tempDiv);
+    const cs = getComputedStyle(tempDiv);
+
+    const resolveVar = (val) => val.replace(/var\(([^)]+)\)/g, (_, name) => {
+      const resolved = cs.getPropertyValue(name.split(',')[0].trim()).trim();
+      return resolved || val;
+    });
+
+    const resolveElement = (el) => {
+      // Resolver atributos de presentación SVG
+      for (const attr of [...el.attributes]) {
+        if (attr.value.includes('var(')) {
+          el.setAttribute(attr.name, resolveVar(attr.value));
+        }
+      }
+      // Resolver style inline
+      if (el.style) {
+        const props = ['fill','stroke','color','background','background-color',
+                       'border-color','opacity','display'];
+        props.forEach(p => {
+          const val = el.style.getPropertyValue(p);
+          if (val && val.includes('var(')) {
+            el.style.setProperty(p, resolveVar(val));
+          }
+        });
+      }
+      for (const child of el.children) resolveElement(child);
     };
+    resolveElement(clone);
 
-    const svg = el('svg', { xmlns:NS, width:W*SC, height:H*SC, viewBox:`0 0 ${W*SC} ${H*SC}` });
-    svg.appendChild(el('rect', { width:'100%', height:'100%', fill:C.bg }));
-    const defs = el('defs');
-    const pat  = el('pattern', { id:'exp-grid', x:0, y:0, width:24*SC, height:24*SC, patternUnits:'userSpaceOnUse' });
-    pat.appendChild(el('circle', { cx:1, cy:1, r:1, fill:C.gridDot }));
-    defs.appendChild(pat);
-    svg.appendChild(defs);
-    svg.appendChild(el('rect', { width:'100%', height:'100%', fill:'url(#exp-grid)', opacity:'0.6' }));
+    // Inyectar estilos CSS inline con valores resueltos (para clases como .rel-line, .cf-mark, etc.)
+    const computedStyles = `
+      .entity-box    { fill:${cs.getPropertyValue('--entity-bg').trim()}; stroke:${cs.getPropertyValue('--entity-border').trim()}; stroke-width:1.5; }
+      .entity-header { fill:${cs.getPropertyValue('--entity-head').trim()}; }
+      .entity-title  { font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600; fill:${cs.getPropertyValue('--fg').trim()}; }
+      .entity-weak-inner { fill:none; stroke:#7c5cea; stroke-width:1.5; }
+      .attr-sep      { stroke:${cs.getPropertyValue('--border').trim()}; stroke-width:0.5; }
+      .rel-line      { stroke:${cs.getPropertyValue('--accent').trim()}; stroke-width:1.8; fill:none; opacity:0.9; }
+      .rel-line-regular    { stroke-dasharray:8 4; }
+      .rel-line-identifying { stroke-dasharray:none; }
+      .rel-attr-line { stroke:${cs.getPropertyValue('--fg-subtle').trim()}; stroke-width:1.3; stroke-dasharray:3 3; fill:none; }
+      .rel-attr-ellipse { fill:${cs.getPropertyValue('--bg3').trim()}; stroke:${cs.getPropertyValue('--fg-subtle').trim()}; stroke-width:1.3; }
+      .rel-attr-label { fill:${cs.getPropertyValue('--fg-muted').trim()}; font-family:'JetBrains Mono',monospace; font-size:10px; text-anchor:middle; dominant-baseline:middle; }
+      .rel-name-label { font-family:'JetBrains Mono',monospace; font-size:10px; fill:${cs.getPropertyValue('--fg-muted').trim()}; dominant-baseline:middle; text-anchor:middle; }
+      .cf-mark       { stroke:${cs.getPropertyValue('--accent').trim()}; stroke-width:1.8; fill:none; stroke-linecap:round; }
+      .cf-mark-dest  { stroke:${cs.getPropertyValue('--accent2').trim()}; stroke-width:1.8; fill:none; stroke-linecap:round; }
+      .gen-line      { stroke:${cs.getPropertyValue('--fg-muted').trim()}; stroke-width:1.8; fill:none; }
+      .gen-arrow     { fill:${cs.getPropertyValue('--fg-muted').trim()}; stroke:none; }
+      .gen-constraint-bg    { fill:${cs.getPropertyValue('--bg2').trim()}; stroke:${cs.getPropertyValue('--border2').trim()}; stroke-width:1; opacity:1; }
+      .gen-constraint-label { fill:${cs.getPropertyValue('--accent2').trim()}; font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; dominant-baseline:middle; text-anchor:middle; }
+      .add-attr-btn  { display:none; }
+      text { font-family:'JetBrains Mono',monospace; }
+    `;
 
-    const root = el('g', { transform:`translate(${(pad-minX)*SC},${(pad-minY)*SC}) scale(${SC})` });
+    const styleEl = document.createElement('style');
+    styleEl.textContent = computedStyles;
+    clone.insertBefore(styleEl, clone.firstChild);
 
-    this.diagram.relationships.forEach(rel => {
-      const fromEnt = this.diagram.getEntity(rel.fromId), toEnt = this.diagram.getEntity(rel.toId);
-      if (!fromEnt || !toEnt) return;
-      const fromC = { x:fromEnt.x+fromEnt.width/2, y:fromEnt.y+fromEnt.height/2 };
-      const toC   = { x:toEnt.x+toEnt.width/2,     y:toEnt.y+toEnt.height/2     };
-      const fp = fromEnt.getNearestPort(toC), tp = toEnt.getNearestPort(fromC);
-      const lineAttrs = { x1:fp.x, y1:fp.y, x2:tp.x, y2:tp.y, stroke:C.accent, 'stroke-width':'1.8', fill:'none', opacity:'0.9' };
-      if (!rel.identifying) lineAttrs['stroke-dasharray'] = '8 4';
-      root.appendChild(el('line', lineAttrs));
-      const drawCF = (type, port, anchor, color) => {
-        const angle=Math.atan2(port.y-anchor.y,port.x-anchor.x), dx=Math.cos(angle), dy=Math.sin(angle);
-        const TICK=7,CB=12,BAR=26,CIR=28;
-        const iw=d=>({x:port.x-dx*d,y:port.y-dy*d});
-        const mkL=(x1,y1,x2,y2)=>root.appendChild(el('line',{x1,y1,x2,y2,stroke:color,'stroke-width':'1.8','stroke-linecap':'round'}));
-        const mkC=(cx,cy,r)=>root.appendChild(el('circle',{cx,cy,r,fill:'none',stroke:color,'stroke-width':'1.8'}));
-        const perp=(o,h)=>({x1:o.x+(-dy)*h,y1:o.y+dx*h,x2:o.x-(-dy)*h,y2:o.y-dx*h});
-        if(type==='one'){const p1=perp(iw(BAR-12),TICK);mkL(p1.x1,p1.y1,p1.x2,p1.y2);const p2=perp(iw(BAR),TICK);mkL(p2.x1,p2.y1,p2.x2,p2.y2);}
-        else if(type==='zero_one'){const pp=perp(iw(BAR-12),TICK);mkL(pp.x1,pp.y1,pp.x2,pp.y2);const cp=iw(CIR);mkC(cp.x,cp.y,5);}
-        else if(type==='one_many'){const tip=iw(CB);mkL(port.x,port.y,tip.x,tip.y);mkL(port.x+(-dy)*TICK,port.y+dx*TICK,tip.x,tip.y);mkL(port.x-(-dy)*TICK,port.y-dx*TICK,tip.x,tip.y);const pp=perp(iw(BAR),TICK);mkL(pp.x1,pp.y1,pp.x2,pp.y2);}
-        else if(type==='zero_many'){const tip=iw(CB);mkL(port.x,port.y,tip.x,tip.y);mkL(port.x+(-dy)*TICK,port.y+dx*TICK,tip.x,tip.y);mkL(port.x-(-dy)*TICK,port.y-dx*TICK,tip.x,tip.y);const cp=iw(CIR);mkC(cp.x,cp.y,5);}
-      };
-      drawCF(Relationship.cardToType(rel.cardFrom),fp,tp,C.accent);
-      drawCF(Relationship.cardToType(rel.cardTo),tp,fp,C.accent2);
-      if(rel.label){const mx=(fp.x+tp.x)/2,my=(fp.y+tp.y)/2;root.appendChild(el('rect',{x:mx-34,y:my-8,width:68,height:14,rx:3,fill:C.entityBg,opacity:'0.95'}));root.appendChild(el('text',{x:mx,y:my,'dominant-baseline':'middle','text-anchor':'middle','font-family':FONT,'font-size':'9.5',fill:C.fgMuted},rel.label));}
-    });
+    // Fondo del color del tema claro
+    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bg.setAttribute('width', '100%'); bg.setAttribute('height', '100%');
+    bg.setAttribute('fill', cs.getPropertyValue('--bg').trim());
+    clone.insertBefore(bg, clone.firstChild);
 
-    this.diagram.entities.forEach(entity => {
-      const {x,y,width:W2,height:H2,headerH:HH,attrH:AH,footerH:FH}=entity;
-      root.appendChild(el('rect',{x:x+3,y:y+4,width:W2,height:H2,rx:8,fill:'#000',opacity:'0.35'}));
-      const borderColor=entity.isWeak?C.entityWeak:C.entityBorder;
-      root.appendChild(el('rect',{x,y,width:W2,height:H2,rx:8,fill:C.entityBg,stroke:borderColor,'stroke-width':'1.5'}));
-      if(entity.isWeak){const M=4;root.appendChild(el('rect',{x:x+M,y:y+M,width:W2-M*2,height:H2-M*2,rx:5,fill:'none',stroke:C.entityWeak,'stroke-width':'1.2'}));}
-      root.appendChild(el('rect',{x,y,width:W2,height:HH,rx:8,fill:C.entityHead}));
-      root.appendChild(el('rect',{x,y:y+HH/2,width:W2,height:HH/2,fill:C.entityHead}));
-      root.appendChild(el('text',{x:x+W2/2,y:y+HH/2,'dominant-baseline':'middle','text-anchor':'middle','font-family':FONT,'font-size':'13','font-weight':'600',fill:C.fg},entity.name));
-      if(entity.isWeak){root.appendChild(el('rect',{x:x+W2-43,y:y+5,width:36,height:13,rx:3,fill:C.weakBadgeBg,stroke:C.entityWeak,'stroke-width':'1'}));root.appendChild(el('text',{x:x+W2-25,y:y+11,'dominant-baseline':'middle','text-anchor':'middle','font-family':FONT,'font-size':'8','font-weight':'700',fill:C.weakBadgeFg},'WEAK'));}
-      root.appendChild(el('line',{x1:x,y1:y+HH,x2:x+W2,y2:y+HH,stroke:C.sep,'stroke-width':'1'}));
-      entity.attributes.forEach((attr,i)=>{
-        const ay=y+HH+i*AH;
-        if(i>0)root.appendChild(el('line',{x1:x+8,y1:ay,x2:x+W2-8,y2:ay,stroke:C.sep,'stroke-width':'0.5'}));
-        let xOff=x+10;
-        if(attr.pk){root.appendChild(el('rect',{x:xOff-1,y:ay+AH/2-7,width:22,height:13,rx:3,fill:C.pkBg}));root.appendChild(el('text',{x:xOff+10,y:ay+AH/2,'dominant-baseline':'middle','text-anchor':'middle','font-family':FONT,'font-size':'9','font-weight':'700',fill:C.pkColor},'PK'));xOff+=26;}
-        if(attr.fk){root.appendChild(el('rect',{x:xOff-1,y:ay+AH/2-7,width:22,height:13,rx:3,fill:C.fkBg}));root.appendChild(el('text',{x:xOff+10,y:ay+AH/2,'dominant-baseline':'middle','text-anchor':'middle','font-family':FONT,'font-size':'9','font-weight':'700',fill:C.fkColor},'FK'));xOff+=26;}
-        const nameColor=attr.pk?C.pkColor:(attr.fk?C.fkColor:C.fg);
-        root.appendChild(el('text',{x:xOff,y:ay+AH/2,'dominant-baseline':'middle','font-family':FONT,'font-size':'11.5',fill:nameColor},attr.name+(attr.nn?' *':'')));
-        if(attr.typeLabel)root.appendChild(el('text',{x:x+W2-8,y:ay+AH/2,'dominant-baseline':'middle','text-anchor':'end','font-family':FONT,'font-size':'10',fill:C.fgSubtle},attr.typeLabel));
-      });
-      const footY=y+HH+entity.attributes.length*AH;
-      root.appendChild(el('text',{x:x+W2/2,y:footY+FH/2,'dominant-baseline':'middle','text-anchor':'middle','font-family':FONT,'font-size':'10',fill:C.fgSubtle,opacity:'0.5'},'+ Agregar atributo'));
-    });
+    // Limpiar el elemento temporal antes de serializar
+    document.body.removeChild(tempDiv);
 
-    svg.appendChild(root);
-    const svgStr=new XMLSerializer().serializeToString(svg);
-    const blob=new Blob([svgStr],{type:'image/svg+xml;charset=utf-8'});
-    const url=URL.createObjectURL(blob), img=new Image();
-    img.onload=()=>{
-      const canvas=document.createElement('canvas');
-      canvas.width=W*SC; canvas.height=H*SC;
-      canvas.getContext('2d').drawImage(img,0,0);
+    // Serializar y exportar
+    const svgStr = new XMLSerializer().serializeToString(clone);
+    const blob   = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const url    = URL.createObjectURL(blob);
+    const img    = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width  = W * SC;
+      canvas.height = H * SC;
+      canvas.getContext('2d').drawImage(img, 0, 0);
       URL.revokeObjectURL(url);
-      canvas.toBlob(png=>this._download(URL.createObjectURL(png),'erflow-diagram.png',null,true),'image/png');
+      canvas.toBlob(png => this._download(
+        URL.createObjectURL(png), 'erflow-diagram.png', null, true
+      ), 'image/png');
     };
-    img.onerror=()=>{URL.revokeObjectURL(url);alert('Error al generar PNG');};
-    img.src=url;
+    img.onerror = () => { URL.revokeObjectURL(url); alert('Error al generar PNG'); };
+    img.src = url;
   }
 
   _download(content, filename, type, isUrl=false) {
