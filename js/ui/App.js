@@ -27,6 +27,12 @@ export class App {
     this._prevTool       = 'select';
     this._fileHandle     = null;       // FileSystemFileHandle del archivo abierto
     this._lastFilename   = null;       // nombre sin extensión para sugerencias
+    this._dragAborted    = false;      // señal para cancelar drag en curso desde undo/redo
+
+    // Historial de deshacer/rehacer (snapshots del diagrama serializado)
+    this._undoStack = [];  // estados anteriores
+    this._redoStack = [];  // estados para rehacer
+    this._MAX_HISTORY = 10;
 
     // Estado para creación de generalización
     this._genSupertype   = null;   // entidad supertipo seleccionada
@@ -45,7 +51,7 @@ export class App {
   _init() {
     this._bindToolButtons(); this._bindTopbarButtons(); this._bindCanvasEvents();
     this._bindKeyboard(); this._bindRelModal(); this._bindGenModal();
-    this._updateToolUI();
+    this._updateToolUI(); //this._loadExample();
   }
 
   _loadExample() {
@@ -215,7 +221,7 @@ export class App {
 
   // ── Teclado ───────────────────────────────────────────────────────────────
   _bindKeyboard() {
-    // Atajos de guardado en fase de CAPTURA para interceptar antes que el navegador
+    // Atajos de guardado y deshacer/rehacer en fase de CAPTURA
     document.addEventListener('keydown', (e) => {
       const ctrl = e.ctrlKey || e.metaKey;
       if (ctrl && e.key.toLowerCase() === 's') {
@@ -226,8 +232,24 @@ export class App {
         } else {
           this.saveProject();
         }
+        return;
       }
-    }, true); // <-- fase de captura: intercepta ANTES que el navegador
+      if (ctrl && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.shiftKey) {
+          this.redo(); // Ctrl+Shift+Z → rehacer
+        } else {
+          this.undo(); // Ctrl+Z → deshacer
+        }
+        return;
+      }
+      if (ctrl && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        e.stopPropagation();
+        this.redo(); // Ctrl+Y → rehacer
+      }
+    }, true);
 
     // Resto de atajos en fase de burbuja (normal)
     document.addEventListener('keydown', (e) => {
@@ -270,6 +292,7 @@ export class App {
 
   // ── Entidades ─────────────────────────────────────────────────────────────
   addEntity(x = 100, y = 100) {
+    this._saveSnapshot();
     const entity = new Entity(`ENTIDAD_${this.diagram.entities.length + 1}`, x, y);
     this.diagram.addEntity(entity);
     const el = SVGEntityRenderer.render(entity, this);
@@ -280,7 +303,7 @@ export class App {
     return entity;
   }
 
-  deleteEntity(id) { this.diagram.removeEntity(id); this.renderAll(); this.deselect(); }
+  deleteEntity(id) { this._saveSnapshot(); this.diagram.removeEntity(id); this.renderAll(); this.deselect(); }
 
   // ── Relaciones ────────────────────────────────────────────────────────────
   startRelationFrom(entity, mouseEvent) {
@@ -316,7 +339,7 @@ export class App {
     this.openRelModal(fromEntity.id, toEntity.id, null);
   }
 
-  deleteRelationship(id) { this.diagram.removeRelationship(id); this.renderAll(); this.deselect(); }
+  deleteRelationship(id) { this._saveSnapshot(); this.diagram.removeRelationship(id); this.renderAll(); this.deselect(); }
 
   // ── Generalización ────────────────────────────────────────────────────────
 
@@ -468,7 +491,7 @@ export class App {
     if (!supertypeId)         { alert('Seleccioná el supertipo'); return; }
     if (subtypeIds.length < 1){ alert('Seleccioná al menos un subtipo'); return; }
     if (subtypeIds.includes(supertypeId)) { alert('El supertipo no puede ser también subtipo'); return; }
-
+    this._saveSnapshot();
     if (this._editingGen) {
       this._editingGen.supertypeId = supertypeId;
       this._editingGen.subtypeIds  = subtypeIds;
@@ -489,6 +512,7 @@ export class App {
   }
 
   deleteGeneralization(id) {
+    this._saveSnapshot();
     this.diagram.removeGeneralization(id);
     this.renderAll();
     this.deselect();
@@ -620,6 +644,7 @@ export class App {
     // Descartar atributos sin nombre antes de guardar
     const attributes  = (this._relAttrsDraft || []).filter(a => a.name && a.name.trim() !== '');
     if (!fromId || !toId) { alert('Selecciona las entidades'); return; }
+    this._saveSnapshot();
     if (this._editingRel) {
       this._editingRel.fromId = fromId; this._editingRel.toId = toId;
       this._editingRel.cardFrom = cardFrom; this._editingRel.cardTo = cardTo;
@@ -695,6 +720,7 @@ export class App {
     const commit = () => {
       if (committed) return;   // evitar doble ejecución blur + Enter
       committed = true;
+      this._saveSnapshot();
       entity.name = input.value.trim().toUpperCase() || entity.name;
       if (input.parentNode) input.remove();
       const old = this.diagRoot.querySelector(`[data-id="${entity.id}"]`);
@@ -834,6 +860,7 @@ export class App {
 
   // ── Render ────────────────────────────────────────────────────────────────
   _refreshEntity(entity) {
+    this._saveSnapshot();
     const old = this.diagRoot.querySelector(`[data-id="${entity.id}"]`);
     if (old) {
       const neu = SVGEntityRenderer.render(entity, this);
@@ -992,6 +1019,50 @@ export class App {
     this.panX  = (r.width -cW*this.scale)/2-(minX-pad)*this.scale;
     this.panY  = (r.height-cH*this.scale)/2-(minY-pad)*this.scale;
     this._applyTransform(); this._updateZoomLabel();
+    // Recalcular ports después de que el layout esté estabilizado,
+    // necesario al cargar un archivo (renderAll + fitView pueden dejar
+    // ports sin distribuir correctamente en el primer render).
+    requestAnimationFrame(() => this.updateRelationships());
+  }
+
+  // ── Historial deshacer/rehacer ─────────────────────────────────────────────
+
+  /**
+   * Guarda el estado actual del diagrama en la pila de deshacer.
+   * Llamar ANTES de cualquier mutación (crear, editar, mover, eliminar).
+   * Limpiar la pila de rehacer al registrar una acción nueva.
+   */
+  _saveSnapshot() {
+    const snapshot = JSON.stringify(this.diagram.toJSON());
+    this._undoStack.push(snapshot);
+    if (this._undoStack.length > this._MAX_HISTORY) {
+      this._undoStack.shift(); // descartar el más antiguo si supera el límite
+    }
+    this._redoStack = []; // nueva acción invalida el historial de rehacer
+  }
+
+  undo() {
+    if (this._undoStack.length === 0) return;
+    this._redoStack.push(JSON.stringify(this.diagram.toJSON()));
+    const snapshot = this._undoStack.pop();
+    this.diagram = Diagram.fromJSON(JSON.parse(snapshot));
+    this._dragAborted = true;
+    this.deselect();
+    this._endPan();
+    this.renderAll();
+    requestAnimationFrame(() => this.updateRelationships());
+  }
+
+  redo() {
+    if (this._redoStack.length === 0) return;
+    this._undoStack.push(JSON.stringify(this.diagram.toJSON()));
+    const snapshot = this._redoStack.pop();
+    this.diagram = Diagram.fromJSON(JSON.parse(snapshot));
+    this._dragAborted = true;
+    this.deselect();
+    this._endPan();
+    this.renderAll();
+    requestAnimationFrame(() => this.updateRelationships());
   }
 
   // ── Guardar / Cargar / Exportar ───────────────────────────────────────────
