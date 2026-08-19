@@ -142,6 +142,7 @@ export class App {
         if (this.currentTool === 'entity') {
           const pt = this._screenToWorld(e.clientX, e.clientY);
           this.addEntity(pt.x - 100, pt.y - 50);
+          this.setTool('select');
         }
         if (this.currentTool === 'relation' && this._relFromEntity) {
           this._cancelRelPreview();
@@ -310,6 +311,7 @@ export class App {
     this.updateRelationships();
     requestAnimationFrame(() => this.updateRelationships());
     this.deselect();
+    this.setTool('select');
   }
 
   // ── Relaciones ────────────────────────────────────────────────────────────
@@ -353,6 +355,7 @@ export class App {
     this.updateRelationships();
     requestAnimationFrame(() => this.updateRelationships());
     this.deselect();
+    this.setTool('select');
   }
 
   // ── Generalización ────────────────────────────────────────────────────────
@@ -530,8 +533,10 @@ export class App {
     this._saveSnapshot();
     this.diagram.removeGeneralization(id);
     this.renderAll();
+    this.updateRelationships();
     requestAnimationFrame(() => this.updateRelationships());
     this.deselect();
+    this.setTool('select');
   }
 
 
