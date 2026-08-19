@@ -303,7 +303,14 @@ export class App {
     return entity;
   }
 
-  deleteEntity(id) { this._saveSnapshot(); this.diagram.removeEntity(id); this.renderAll(); this.deselect(); }
+  deleteEntity(id) {
+    this._saveSnapshot();
+    this.diagram.removeEntity(id);
+    this.renderAll();
+    this.updateRelationships();
+    requestAnimationFrame(() => this.updateRelationships());
+    this.deselect();
+  }
 
   // ── Relaciones ────────────────────────────────────────────────────────────
   startRelationFrom(entity, mouseEvent) {
@@ -339,7 +346,14 @@ export class App {
     this.openRelModal(fromEntity.id, toEntity.id, null);
   }
 
-  deleteRelationship(id) { this._saveSnapshot(); this.diagram.removeRelationship(id); this.renderAll(); this.deselect(); }
+  deleteRelationship(id) {
+    this._saveSnapshot();
+    this.diagram.removeRelationship(id);
+    this.renderAll();
+    this.updateRelationships();
+    requestAnimationFrame(() => this.updateRelationships());
+    this.deselect();
+  }
 
   // ── Generalización ────────────────────────────────────────────────────────
 
@@ -498,6 +512,7 @@ export class App {
       this._editingGen.disjoint    = disjoint;
       this._editingGen.complete    = complete;
       this.renderAll();
+      requestAnimationFrame(() => this.updateRelationships());
     } else {
       const gen = new Generalization(supertypeId, subtypeIds, disjoint, complete);
       this.diagram.addGeneralization(gen);
@@ -515,6 +530,7 @@ export class App {
     this._saveSnapshot();
     this.diagram.removeGeneralization(id);
     this.renderAll();
+    requestAnimationFrame(() => this.updateRelationships());
     this.deselect();
   }
 
@@ -652,6 +668,7 @@ export class App {
       this._editingRel.roleFrom = roleFrom; this._editingRel.roleTo = roleTo;
       this._editingRel.attributes = attributes;
       this.renderAll();
+      requestAnimationFrame(() => this.updateRelationships());
     } else {
       const rel = new Relationship(fromId, toId, cardFrom, cardTo, label, identifying, roleFrom, roleTo, attributes);
       this.diagram.addRelationship(rel);
@@ -1050,6 +1067,7 @@ export class App {
     this.deselect();
     this._endPan();
     this.renderAll();
+    this.updateRelationships();
     requestAnimationFrame(() => this.updateRelationships());
   }
 
@@ -1062,6 +1080,7 @@ export class App {
     this.deselect();
     this._endPan();
     this.renderAll();
+    this.updateRelationships();
     requestAnimationFrame(() => this.updateRelationships());
   }
 
