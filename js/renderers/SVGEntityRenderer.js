@@ -42,7 +42,7 @@ export class SVGEntityRenderer {
       const bt = svgEl('text', { x: W - 24, y: 11, 'dominant-baseline': 'middle', 'text-anchor': 'middle',
         'font-family': 'JetBrains Mono, monospace', 'font-size': '8', 'font-weight': '700',
         fill: 'var(--weak-badge-color)' });
-      bt.textContent = 'WEAK';
+      bt.textContent = 'DÉBIL';
       badge.appendChild(br); badge.appendChild(bt);
       badge.addEventListener('mouseenter', (e) => {
         const hasIdentifying = app.diagram.relationships.some(
@@ -63,7 +63,7 @@ export class SVGEntityRenderer {
       stroke: entity.isWeak ? 'var(--weak-badge-border)' : 'transparent', 'stroke-width': '1' });
     const weakBtnIco = svgEl('text', { x: 11, y: 11, 'dominant-baseline': 'middle', 'text-anchor': 'middle',
       'font-size': '9', fill: entity.isWeak ? 'var(--weak-badge-color)' : 'var(--fg-subtle)' });
-    weakBtnIco.textContent = 'W';
+    weakBtnIco.textContent = 'D';
     weakBtn.appendChild(weakBtnBg); weakBtn.appendChild(weakBtnIco);
     weakBtn.style.cursor = 'pointer';
     weakBtn.addEventListener('click', (e) => {
