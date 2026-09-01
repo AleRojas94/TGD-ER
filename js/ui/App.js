@@ -816,7 +816,6 @@ export class App {
       <div class="ap-section-label">Restricciones</div>
       <div class="attr-popover-flags">
         <label class="flag-checkbox"><input type="checkbox" id="ap-pk" ${attr.pk?'checked':''}> PK</label>
-        <label class="flag-checkbox"><input type="checkbox" id="ap-fk" ${attr.fk?'checked':''}> FK</label>
         <label class="flag-checkbox"><input type="checkbox" id="ap-nn" ${attr.nn?'checked':''}> NN</label>
         <label class="flag-checkbox"><input type="checkbox" id="ap-uq" ${attr.unique?'checked':''}> UQ</label>
       </div>
@@ -855,7 +854,6 @@ export class App {
       if (!name) { pop.querySelector('#ap-name').focus(); return; }
       attr.name     = name;
       attr.pk       = pop.querySelector('#ap-pk').checked;
-      attr.fk       = pop.querySelector('#ap-fk').checked;
       attr.nn       = pop.querySelector('#ap-nn').checked;
       attr.unique   = pop.querySelector('#ap-uq').checked;
       attr.dataType = pop.querySelector('#ap-type-display').value;
