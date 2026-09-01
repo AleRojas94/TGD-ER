@@ -678,6 +678,7 @@ export class App {
       const rel = new Relationship(fromId, toId, cardFrom, cardTo, label, identifying, roleFrom, roleTo, attributes);
       this.diagram.addRelationship(rel);
       this._renderOneRelationship(rel);
+      this._checkWeakEntities();
     }
     this._closeRelModal();
     this.currentTool = 'select'; this._updateToolUI(); this._showHint('');
