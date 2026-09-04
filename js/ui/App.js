@@ -1369,7 +1369,7 @@ export class App {
       canvas.getContext('2d').drawImage(img, 0, 0);
       URL.revokeObjectURL(url);
       canvas.toBlob(png => this._download(
-        URL.createObjectURL(png), 'erflow-diagram.png', null, true
+        URL.createObjectURL(png), 'diagramAR.png', null, true
       ), 'image/png');
     };
     img.onerror = () => { URL.revokeObjectURL(url); alert('Error al generar PNG'); };
